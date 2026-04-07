@@ -50,8 +50,8 @@ spec:
     spec:
       containers:
         - name: backend
-          image: backend-sensores:latest
-          imagePullPolicy: Never # Cambiar a 'Always' si subes la imagen a Docker Hub
+          image: vicmiralo/backend-sensores:latest
+          imagePullPolicy: Always # Cambiar a 'Always' si subes la imagen a Docker Hub
           ports:
             - containerPort: 5000
 ---
