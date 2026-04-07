@@ -1,0 +1,33 @@
+version: "3.8"
+services:
+  # 1. Base de Datos para todo el sistema
+  postgres-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: sensores_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5432:5432"
+
+  # 2. Keycloak (Puerto 8080)
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.0
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres-db
+
+  # 3. WSO2 API Manager (Puerto 9443 para la consola)
+  wso2am:
+    image: wso2/wso2am:4.2.0
+    ports:
+      - "9443:9443" # Consola de administración
+      - "8243:8243" # Gateway HTTPS
+      - "8280:8280" # Gateway HTTP
+    depends_on:
+      - keycloak
