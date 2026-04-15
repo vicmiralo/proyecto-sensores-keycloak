@@ -1,0 +1,17 @@
+# Usamos una imagen ligera de Python
+FROM python:3.9-slim
+
+# Establecemos el directorio de trabajo dentro del contenedor
+WORKDIR /app
+
+# Copiamos tu script de Python al contenedor
+COPY token_proxy.py .
+
+# Exponemos el puerto 9090 que es donde escucha tu script
+EXPOSE 9090
+
+# Variable de entorno para que los logs de Python se vean en tiempo real (sin buffer)
+ENV PYTHONUNBUFFERED=1
+
+# Comando para ejecutar el proxy
+CMD ["python", "token_proxy.py"]

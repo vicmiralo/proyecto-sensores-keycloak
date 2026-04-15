@@ -1,33 +1,93 @@
-version: "3.8"
 services:
-  # 1. Base de Datos para todo el sistema
+  # 1. Base de Datos
   postgres-db:
     image: postgres:15
+    container_name: postgres-db
     environment:
       POSTGRES_DB: sensores_db
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password123
-    ports:
-      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      sensores-net:
+        aliases:
+          - db-sensores
 
-  # 2. Keycloak (Puerto 8080)
+  # 2. FastAPI Backend
+  api-sensores:
+    build: .
+    container_name: api-sensores
+    ports:
+      - "8001:8000"
+    depends_on:
+      - postgres-db
+    networks:
+      - sensores-net
+
+  # 3. Token Proxy (elimina scope= vacío para compatibilidad Keycloak 24)
+  token-proxy:
+    image: python:3.9-slim
+    container_name: token-proxy
+    command: python -u /app/token_proxy.py
+    volumes:
+      - ./token_proxy.py:/app/token_proxy.py
+    ports:
+      - "9090:9090"
+    depends_on:
+      - keycloak
+    networks:
+      - sensores-net
+
+  # 4. Keycloak
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0.0
-    command: start-dev
+    image: quay.io/keycloak/keycloak:23.0.7
+    container_name: keycloak-server
+    command: start-dev --http-relative-path /auth
     environment:
+      # Ponemos las que te pide el error específicamente:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+      # Y las modernas por si acaso:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # El truco para que te deje entrar desde fuera:
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY: "none"
+      # Base de Datos
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres-db:5432/sensores_db
+      KC_DB_USERNAME: admin
+      KC_DB_PASSWORD: password123
     ports:
       - "8080:8080"
     depends_on:
       - postgres-db
+    networks:
+      - sensores-net
 
-  # 3. WSO2 API Manager (Puerto 9443 para la consola)
+  # 3. WSO2 API Manager
   wso2am:
-    image: wso2/wso2am:4.2.0
+    image: wso2/wso2am:4.3.0
+    container_name: wso2am
+    environment:
+      - NODE_IP=127.0.0.1
     ports:
-      - "9443:9443" # Consola de administración
-      - "8243:8243" # Gateway HTTPS
-      - "8280:8280" # Gateway HTTP
+      - "9443:9443"
+      - "8243:8243"
+      - "8280:8280"
+    volumes:
+      - wso2am_data:/home/wso2carbon/wso2am-4.3.0/repository/database
     depends_on:
       - keycloak
+    networks:
+      - sensores-net
+
+networks:
+  sensores-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  wso2am_data:
